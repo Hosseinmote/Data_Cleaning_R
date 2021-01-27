@@ -1,0 +1,114 @@
+---
+title: "R Code book"
+author: "Mohammad H. Motevaselian"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Getting and Cleaning Data Course Project
+
+The purpose of this project is to demonstrate your ability to collect, work with, and clean a data set. The goal is to prepare tidy data that can be used for later analysis. 
+
+One of the most exciting areas in all of data science right now is wearable computing - see for example this article . Companies like Fitbit, Nike, and Jawbone Up are racing to develop the most advanced algorithms to attract new users. The data linked to from the course website represent data collected from the accelerometers from the Samsung Galaxy S smartphone. A full description is available at the site where the data was obtained:
+
+http://archive.ics.uci.edu/ml/datasets/Human+Activity+Recognition+Using+Smartphones 
+
+Here are the data for the project:
+
+https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip  
+
+You should create one R script called run_analysis.R that does the following. 
+
+1. Merges the training and the test sets to create one data set.
+2. Extract only the measurements on the mean and standard deviation for each measurement. 
+3. Uses descriptive activity names to name the activities in the data set
+4. Appropriately labels the data set with descriptive variable names. 
+5. From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
+
+## Information about the data
+
+### Data description
+
+The experiments have been carried out with a group of 30 volunteers within an age bracket of 19-48 years. Each person performed six activities (WALKING, WALKING_UPSTAIRS, WALKING_DOWNSTAIRS, SITTING, STANDING, LAYING) wearing a smartphone (Samsung Galaxy S II) on the waist. Using its embedded accelerometer and gyroscope, we captured 3-axial linear acceleration and 3-axial angular velocity at a constant rate of 50Hz. The experiments have been video-recorded to label the data manually. The obtained dataset has been randomly partitioned into two sets, where 70% of the volunteers was selected for generating the training data and 30% the test data. 
+
+The sensor signals (accelerometer and gyroscope) were pre-processed by applying noise filters and then sampled in fixed-width sliding windows of 2.56 sec and 50% overlap (128 readings/window). The sensor acceleration signal, which has gravitational and body motion components, was separated using a Butterworth low-pass filter into body acceleration and gravity. The gravitational force is assumed to have only low frequency components, therefore a filter with 0.3 Hz cutoff frequency was used. From each window, a vector of features was obtained by calculating variables from the time and frequency domain. See 'features_info.txt' for more details. 
+
+### List of Files:
+
++ 'features_info.txt': Shows information about the variables used on the feature vector.
+* 'features.txt': List of all features.
+* 'activity_labels.txt': Links the class labels with their activity name.
+    + 1 = WALKING           
+    + 2 = WALKING_UPSTAIRS   
+    + 3 = WALKING_DOWNSTAIRS 
+    + 4 = SITTING            
+    + 5 = STANDING           
+* 'train/X_train.txt': Training set containing 561 features. 
+* 'train/y_train.txt': Training labels from the activity list mentioned above
+* 'test/X_test.txt': Test set.
+* 'test/y_test.txt': Test labels.
+* 'train/subject_train.txt': Each row identifies the subject who performed the activity, ranging from 1 to 30.
+* 'train/subject_test.txt': Each row identifies the subject who performed the activity, ranging from 1 to 30.
+
+See the README.txt file for the detailed information on the dataset. For the purposes of this project, the files in the Inertial Signals folders are not used. 
+
+### Data Manipulation
+
+1) Load the data into the R
+
+    + Test and train data: x, y, and subject:
+```{r}
+xTest <- read.table(paste0(getwd(),'/UCI_HAR_DataSet/','test/X_test.txt'),header=FALSE)
+yTest <- read.table(paste0(getwd(),'/UCI_HAR_DataSet/','test/Y_test.txt'),header=FALSE)
+subjectTest <- read.table(paste0(getwd(),'/UCI_HAR_DataSet/','test/subject_test.txt'),header=FALSE)
+xTrain <- read.table(paste0(getwd(),'/UCI_HAR_DataSet/','train/X_train.txt'),header=FALSE)
+yTrain <- read.table(paste0(getwd(),'/UCI_HAR_DataSet/','train/Y_train.txt'),header=FALSE)
+subjectTrain <- read.table(paste0(getwd(),'/UCI_HAR_DataSet/','train/subject_train.txt'),header=FALSE)
+```
+
+2) Merging the training and the test sets to create one data set :
+```{r}
+xData <- rbind(xTrain,xTest)
+yData <- rbind(yTrain,yTest)
+subjectData <- rbind(subjectTrain,subjectTest)
+```
+3) Extract only the measurements on the mean and standard deviation for each measurement:
+```{r}
+features <- read.table(paste0(getwd(),'/UCI_HAR_DataSet/',"features.txt"),header=FALSE) 
+indexMeanSTD  <- grep("(mean|std)\\(\\)",features[,2])
+xData_MeanSTD <- xData[,indexMeanSTD]
+names(xData_MeanSTD) <- features[indexMeanSTD,2]
+```
+4) Uses descriptive activity names to name the activities in the data set:
+```{r}
+activity <- read.table(paste0(getwd(),'/UCI_HAR_DataSet/','activity_labels.txt'),header=FALSE)
+yData[,1] <- factor(yData[,1],labels=activity[,2])
+names(yData) <- "Activity"
+```
+5) Appropriately label the data set with descriptive variable names:
+```{r}
+names(subjectData) <- "Subject"
+fullData <- cbind(xData_MeanSTD,yData,subjectData)
+names(fullData) <- gsub("-", "\\.", names(fullData))
+names(fullData) <- gsub("\\(\\)", "", names(fullData))
+names(fullData) <- gsub("^t", "TimeDomain.", names(fullData))
+names(fullData) <- gsub("^f", "FrequencyDomain.", names(fullData))
+names(fullData) <- gsub("Acc", "Acceleration", names(fullData))
+names(fullData) <- gsub("GyroJerk", "AngularAcceleration", names(fullData))
+names(fullData) <- gsub("Gyro","AngularSpeed",names(fullData))
+names(fullData) <- gsub("Mag","Magnitude",names(fullData))
+names(fullData) <- gsub("mean","Mean",names(fullData))
+names(fullData) <- gsub("std","StandardDeviation",names(fullData))
+```
+6) From the data set in step 5, creates a second, independent tidy data:
+```{r}
+library(dplyr)
+tidydata <- fullData %>% group_by(Subject,Activity) %>% summarise_all(mean)
+write.table(tidydata, file = "tidydata_mean.txt",row.name=FALSE)
+```
+
+
+
+
